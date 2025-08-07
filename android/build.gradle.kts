@@ -1,3 +1,16 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // La declaración del classpath para 'google-services' se ha movido
+        // a settings.gradle.kts, por lo que esta sección se mantiene limpia.
+        classpath("com.android.tools.build:gradle:8.7.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -19,3 +32,4 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+

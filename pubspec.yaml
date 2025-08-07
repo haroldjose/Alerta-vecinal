@@ -11,13 +11,13 @@ dependencies:
     sdk: flutter
 
   # State Management
-  flutter_riverpod: ^2.4.9
+  flutter_riverpod: ^2.6.1
   
   # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  cloud_firestore: ^4.13.6
-  firebase_storage: ^11.5.6
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.17.5
+  firebase_storage: ^11.6.5
   firebase_messaging: ^14.7.10
   
   # Navigation
@@ -27,15 +27,14 @@ dependencies:
   cupertino_icons: ^1.0.2
   
   # Image & Location
-  image_picker: ^1.0.4
-  geolocator: ^10.1.0
-  location: ^5.0.3
-  google_maps_flutter: ^2.5.0
+  image_picker: ^1.1.2
+  
+  # Location & Maps
+  geolocator: ^14.0.2
+  google_maps_flutter: ^2.12.3
   
   # Utils
-  shared_preferences: ^2.2.2
-  connectivity_plus: ^5.0.2
-  permission_handler: ^11.1.0
+  intl: ^0.20.2
 
 
 dev_dependencies:
