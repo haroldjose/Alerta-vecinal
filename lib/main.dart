@@ -1,4 +1,7 @@
 
+import 'package:alerta_vecinal/providers/auth_provider.dart';
+import 'package:alerta_vecinal/screens/auth/login_screen.dart';
+import 'package:alerta_vecinal/screens/home/home_screen.dart';
 import 'package:alerta_vecinal/core/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -27,7 +30,18 @@ class MyApp extends ConsumerWidget {
           elevation: 0,
         ),
       ),
-      
+      home: Consumer(
+        builder: (context, ref, child) {
+          final authState = ref.watch(authStateProvider);
+          return authState.when(
+            data: (user) => user != null ? const HomeScreen() : const LoginScreen(),
+            loading: () => const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, stack) => const LoginScreen(),
+          );
+        },
+      ),
     );
   }
 }
