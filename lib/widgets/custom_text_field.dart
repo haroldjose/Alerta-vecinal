@@ -33,7 +33,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mostrar error si existe
+        // Muestra error si existe
         if (widget.errorText != null && widget.errorText!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
