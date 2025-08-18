@@ -3,6 +3,7 @@ import 'package:alerta_vecinal/models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/custom_drawer.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -16,16 +17,14 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Alerta Vecinal'),
         backgroundColor: AppColors.primary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final authService = ref.read(authServiceProvider);
-              await authService.signOut();
-            },
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
-        ],
+        ),
       ),
+      drawer: const CustomDrawer(),
       body: currentUser.when(
         data: (user) {
           if (user == null) {
@@ -33,7 +32,6 @@ class HomeScreen extends ConsumerWidget {
               child: Text('No hay usuario autenticado'),
             );
           }
-          
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -25,7 +25,7 @@ class UserService{
   }
 
   // actualizar usuario
-  Future<void> updateUaser(String userId, Map<String,dynamic> data) async{
+  Future<void> updateUser(String userId, Map<String,dynamic> data) async{
     try{
       await _firestore.collection('users').doc(userId).update(data);
     }catch(e){
@@ -34,6 +34,7 @@ class UserService{
     }
   }
 }
+
 
 //manejar subida imagen perfil
 
@@ -66,8 +67,21 @@ class ProfileImageNotifier extends StateNotifier<AsyncValue<String?>>{
   state = AsyncValue.data(null);
 
  }
+
+ Future<void> updateProfileImageUrl(String downloadUrl, String userId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId) 
+          .update({'profileImage': downloadUrl});
+    } catch (e) {
+      throw 'Error al actualizar la base de datos: $e';
+    }
+  }
+
 }
 
 final profileImageProvider = StateNotifierProvider<ProfileImageNotifier, AsyncValue<String?>>((ref){
  return ProfileImageNotifier(ref);
 });
+

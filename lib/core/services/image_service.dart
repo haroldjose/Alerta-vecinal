@@ -8,8 +8,7 @@ class ImageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
 
-  // seleccionando imagen galeria o camara
-
+  // seleccionando galeria o camara
   Future<File?> pickImage({ImageSource source = ImageSource.gallery}) async{
     try{
       final XFile? image = await _picker.pickImage(
@@ -28,40 +27,73 @@ class ImageService {
     return null;
   }
    
-
-   // subir imagen a Firebase Storage
-
+   // subir imagen a Storage 
    Future<String?> uploadProfileImage(File imageFile, String userId) async{
     try{
-      final ref = _storage.ref().child('profile_image/$userId.jpg');
-      final uploadTask = ref.putFile(imageFile);
+      if (!await imageFile.exists()) {
+        throw 'El archivo de imagen no existe';
+      }
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final ref = _storage.ref().child('profile_images/$userId-$timestamp.jpg');
+      
+      // Configurar metadata
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'userId': userId,
+          'uploadedAt': timestamp.toString(),
+        },
+      );
+
+      // Subir archivo con metadata
+      final uploadTask = ref.putFile(imageFile, metadata);
+      
+      // Escuchar el progreso 
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        'Progreso: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%';
+      });
+
+      // Esperar a que termine
       final snapshot = await uploadTask;
 
       if(snapshot.state == TaskState.success){
-        final donwloadUrl = await ref.getDownloadURL();
-        return donwloadUrl;
+        final downloadUrl = await ref.getDownloadURL();
+        return downloadUrl;
+      } else {
+        throw 'La subida no fue exitosa. Estado: ${snapshot.state}';
       }
-    }catch(e){
+    } catch(e) {
+      if (e.toString().contains('cancelled') || e.toString().contains('-13040')) {
+        throw 'La subida fue cancelada. Verifica tu conexión a internet.';
+      }
       throw 'Error al subir la imagen: $e';
     }
-    return null;
    }
-   // eliminar imagen
-   Future<void> deleteProfileImage(String userId)async{
+
+   // eliminar imagen 
+   Future<void> deleteProfileImage(String userId) async{
     try{
-      final ref = _storage.ref().child('profile_image/$userId.jpg');
-      await ref.delete();
+      // Buscar archivos que empiecen con el userId
+      final listResult = await _storage.ref().child('profile_images').listAll();
+      
+      for (final item in listResult.items) {
+        if (item.name.startsWith(userId)) {
+          await item.delete();
+          print('Imagen anterior eliminada: ${item.name}');
+        }
+      }
     }catch(e){
-      throw 'error al eliminar imagen: $e';
+      'Error al eliminar imagen anterior: $e';
+      
     }
    }
 
    // selector de imagen
-
-   Future<File?> showImageSourceDialog(context) async{
-    return await showDialog<File?>(
+   Future<File?> showImageSourceDialog(BuildContext context) async{
+    final ImageSource? selectedSource = await showDialog<ImageSource?>(
       context: context, 
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text('Seleccionar imagen'),
           content: Column(
@@ -70,37 +102,78 @@ class ImageService {
               ListTile(
                 leading: Icon(Icons.photo_library),
                 title: Text('Galeria'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final file = await pickImage(source:  ImageSource.gallery);
-                  Navigator.pop(context, file);
+                onTap: () {
+                  Navigator.pop(dialogContext, ImageSource.gallery);
                 },
               ),
               ListTile(
                 leading: Icon(Icons.camera_alt),
                 title: Text('Cámara'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final file = await pickImage(source:  ImageSource.camera);
-                  Navigator.pop(context, file);
+                onTap: () {
+                  Navigator.pop(dialogContext, ImageSource.camera);
                 },
               )
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context), 
+              onPressed: () => Navigator.pop(dialogContext), 
               child: Text('Cancelar'))
           ],
         );
       },
-      );
+    );
+
+    // proceder a tomar la imagen
+    if (selectedSource != null) {
+      return await pickImage(source: selectedSource);
+    }
+    
+    return null;
    }
 
+   // usando showModalBottomSheet 
+   Future<File?> showImageSourceBottomSheet(BuildContext context) async {
+    final ImageSource? selectedSource = await showModalBottomSheet<ImageSource?>(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext bottomSheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text('Seleccionar de galería'),
+                onTap: () {
+                  Navigator.pop(bottomSheetContext, ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.camera_alt),
+                title: Text('Tomar foto'),
+                onTap: () {
+                  Navigator.pop(bottomSheetContext, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.cancel),
+                title: Text('Cancelar'),
+                onTap: () {
+                  Navigator.pop(bottomSheetContext);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
 
-
-
-
-
-
+    if (selectedSource != null) {
+      return await pickImage(source: selectedSource);
+    }
+    
+    return null;
+  }
 }
