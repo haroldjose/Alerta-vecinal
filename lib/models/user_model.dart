@@ -30,7 +30,7 @@ class UserModel {
       role: data['role'] == 'admin' ? UserRole.admin : UserRole.user,
       cargo: data['cargo'],
       profileImage: data['profileImage'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 

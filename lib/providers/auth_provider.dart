@@ -79,7 +79,7 @@ class AuthService {
       throw _handleAuthException(e);
     } on FirebaseException catch (e) {
       throw 'Error de Firebase: ${e.message}';
-    } catch (e, stackTrace) {
+    } catch (e) {
       throw 'Error inesperado durante el registro: $e';
     }
   }
