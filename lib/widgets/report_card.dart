@@ -26,7 +26,7 @@ class ReportCard extends ConsumerWidget {
         
         if (result == true) {
           ref.invalidate(reportsStreamProvider);
-          ///
+          ref.invalidate(reportsByTypeProvider(report.problemType));
         }
       },
       child: Container(

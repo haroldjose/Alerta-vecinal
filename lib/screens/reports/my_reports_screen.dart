@@ -2,52 +2,34 @@ import 'package:alerta_vecinal/core/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/custom_drawer.dart';
 import '../../providers/reports_provider.dart';
 import '../../widgets/report_card.dart';
 import '../../widgets/custom_button.dart';
 import '../reports/create_report_screen.dart';
 import '../../models/report_model.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+class MyReportsScreen extends ConsumerStatefulWidget {
+  const MyReportsScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<MyReportsScreen> createState() => _MyReportsScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  // Estados de los filtros
+class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
+  // Estados de los filtros locales
   ProblemType? _selectedProblemType;
   ReportStatus? _selectedStatus;
-  DateTimeRange? _selectedDateRange;
   bool _showFilters = false;
 
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
-    final reportsAsync = ref.watch(reportsStreamProvider);
-
-    // Escucha cambios en el provider de creación de reportes
-    ref.listen<AsyncValue<void>>(createReportProvider, (previous, next) {
-      next.whenData((_) {
-        if (previous?.isLoading == true) {
-          ref.invalidate(reportsStreamProvider);
-        }
-      });
-    });
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Alerta Vecinal'),
+        title: const Text('Mis Reportes'),
         backgroundColor: AppColors.primary,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
         actions: [
           IconButton(
             icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
@@ -59,28 +41,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      drawer: const CustomDrawer(),
       body: currentUser.when(
         data: (user) {
           if (user == null) {
             return const Center(child: Text('No hay usuario autenticado'));
           }
 
-          return reportsAsync.when(
+          // Usar el provider de reportes por usuario
+          final myReportsAsync = ref.watch(myReportsStreamProvider(user.id));
+
+          return myReportsAsync.when(
             data: (reports) {
-              // Aplicar filtros
+              // Aplicar filtros locales
               final filteredReports = _applyFilters(reports);
 
               return Column(
                 children: [
+                  // Estadísticas rápidas
+                  _buildStatsBar(reports),
+
                   // Panel de filtros
                   if (_showFilters) _buildFiltersPanel(),
-                  
+
                   // Lista de reportes
                   Expanded(
                     child: filteredReports.isEmpty
-                        ? _buildEmptyState(context)
-                        : _buildReportsList(filteredReports),
+                        ? _buildEmptyState(context, reports.isEmpty)
+                        : _buildReportsList(filteredReports, user.id),
                   ),
                 ],
               );
@@ -95,7 +82,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    'Error al cargar reportes',
+                    'Error al cargar tus reportes',
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
@@ -106,7 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => ref.refresh(reportsStreamProvider),
+                    onPressed: () => ref.invalidate(myReportsStreamProvider(user.id)),
                     child: const Text('Reintentar'),
                   ),
                 ],
@@ -137,11 +124,95 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  // Barra de estadísticas
+  Widget _buildStatsBar(List<ReportModel> reports) {
+    final pendientes = reports.where((r) => r.status == ReportStatus.pendiente).length;
+    final enRevision = reports.where((r) => r.status == ReportStatus.enRevision).length;
+    final resueltos = reports.where((r) => r.status == ReportStatus.resuelto).length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Total: ${reports.length} reportes',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatChip(
+                'Pendientes',
+                pendientes,
+                ReportStatus.pendiente.color,
+              ),
+              _buildStatChip(
+                'En Revisión',
+                enRevision,
+                ReportStatus.enRevision.color,
+              ),
+              _buildStatChip(
+                'Resueltos',
+                resueltos,
+                ReportStatus.resuelto.color,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatChip(String label, int count, int colorValue) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Color(colorValue).withValues(alpha: 0.1),
+            border: Border.all(color: Color(colorValue)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(colorValue),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
   // Panel de filtros
   Widget _buildFiltersPanel() {
-    final hasActiveFilters = _selectedProblemType != null || 
-                             _selectedStatus != null || 
-                             _selectedDateRange != null;
+    final hasActiveFilters = _selectedProblemType != null || _selectedStatus != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -257,46 +328,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          // Filtro por fecha
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Fecha',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _selectDateRange,
-                  icon: Icon(
-                    _selectedDateRange != null ? Icons.date_range : Icons.calendar_today,
-                    size: 18,
-                  ),
-                  label: Text(
-                    _selectedDateRange != null
-                        ? '${_formatDateShort(_selectedDateRange!.start)} - ${_formatDateShort(_selectedDateRange!.end)}'
-                        : 'Seleccionar rango',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _selectedDateRange != null 
-                        ? AppColors.primary 
-                        : AppColors.textSecondary,
-                    side: BorderSide(
-                      color: _selectedDateRange != null 
-                          ? AppColors.primary 
-                          : Colors.grey[300]!,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -327,10 +359,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // Lista de reportes
-  Widget _buildReportsList(List<ReportModel> reports) {
+  Widget _buildReportsList(List<ReportModel> reports, String userId) {
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(reportsStreamProvider);
+        ref.invalidate(myReportsStreamProvider(userId));
         await Future.delayed(const Duration(milliseconds: 500));
       },
       child: ListView.builder(
@@ -347,10 +379,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // Estado vacío
-  Widget _buildEmptyState(BuildContext context) {
-    final hasActiveFilters = _selectedProblemType != null || 
-                             _selectedStatus != null || 
-                             _selectedDateRange != null;
+  Widget _buildEmptyState(BuildContext context, bool noReportsAtAll) {
+    final hasActiveFilters = _selectedProblemType != null || _selectedStatus != null;
 
     return Center(
       child: Padding(
@@ -359,15 +389,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              hasActiveFilters ? Icons.filter_alt_off : Icons.report_off,
+              hasActiveFilters ? Icons.filter_alt_off : Icons.assignment_outlined,
               size: 80,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 24),
             Text(
-              hasActiveFilters 
-                  ? 'No se encontraron reportes con estos filtros'
-                  : 'No se tienen reportes',
+              hasActiveFilters
+                  ? 'No tienes reportes con estos filtros'
+                  : noReportsAtAll
+                      ? 'Aún no has creado reportes'
+                      : 'No tienes reportes',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -375,14 +407,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            Text(
+              hasActiveFilters
+                  ? 'Prueba ajustando los filtros'
+                  : 'Crea tu primer reporte para empezar',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
             if (hasActiveFilters)
               TextButton(
                 onPressed: _clearFilters,
                 child: const Text('Limpiar filtros'),
               )
             else
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
             CustomButton(
               text: 'Crear Reporte',
               onPressed: () {
@@ -415,21 +458,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       filtered = filtered.where((report) => report.status == _selectedStatus).toList();
     }
 
-    // Filtrar por fecha
-    if (_selectedDateRange != null) {
-      filtered = filtered.where((report) {
-        final reportDate = report.createdAt;
-        final startDate = DateTime(_selectedDateRange!.start.year, 
-                                   _selectedDateRange!.start.month, 
-                                   _selectedDateRange!.start.day);
-        final endDate = DateTime(_selectedDateRange!.end.year, 
-                                 _selectedDateRange!.end.month, 
-                                 _selectedDateRange!.end.day, 23, 59, 59);
-        return reportDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-               reportDate.isBefore(endDate.add(const Duration(seconds: 1)));
-      }).toList();
-    }
-
     return filtered;
   }
 
@@ -438,41 +466,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {
       _selectedProblemType = null;
       _selectedStatus = null;
-      _selectedDateRange = null;
     });
-  }
-
-  // Seleccionar rango de fechas
-  Future<void> _selectDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: _selectedDateRange,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null && picked != _selectedDateRange) {
-      setState(() {
-        _selectedDateRange = picked;
-      });
-    }
-  }
-
-  // Formatear fecha
-  String _formatDateShort(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 }

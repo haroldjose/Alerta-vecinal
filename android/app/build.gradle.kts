@@ -8,26 +8,26 @@ plugins {
 
 android {
     namespace = "com.example.alerta_vecinal"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        
+        isCoreLibraryDesugaringEnabled = true  // ← Sintaxis Kotlin
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"  // ← Debe coincidir con compileOptions
     }
 
     defaultConfig {
         applicationId = "com.example.alerta_vecinal"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-        
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+        multiDexEnabled = true  // ← Sintaxis Kotlin (sin punto y coma)
     }
 
     buildTypes {
@@ -41,11 +41,10 @@ flutter {
     source = "../.."
 }
 
-// Las dependencias se declaran en el bloque de 'dependencies' a nivel raíz.
-// He movido la dependencia de desugaring aquí para que no haya conflictos.
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation("com.google.firebase:firebase-analytics")
-    // La dependencia de desugaring debe ir aquí.
+    
+    // Desugaring para compatibilidad con APIs modernas
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")  // ← Sintaxis Kotlin
 }
-
