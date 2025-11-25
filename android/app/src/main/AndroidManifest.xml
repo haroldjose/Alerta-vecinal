@@ -9,10 +9,33 @@
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
 
+<!-- <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" /> -->
+
+
     <application
         android:label="alerta_vecinal"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+       <!--  -->
+       <!-- <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths"/>
+        </provider> -->
+
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCYHbmriZY94w6fRce5YUmYG5tvKlr9e0g" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,6 +63,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <service
+          android:name="com.google.firebase.messaging.FirebaseMessagingService"
+          android:exported="false">
+          <intent-filter>
+            <action android:name="com.google.firebase.MESSAGING_EVENT" />
+          </intent-filter>
+        </service>    
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -52,4 +83,5 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+    
 </manifest>

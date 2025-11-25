@@ -30,7 +30,8 @@ class ImageService {
   // Subir imagen de perfil a Firebase Storage
   Future<String?> uploadProfileImage(File imageFile, String userId) async {
     try {
-      final ref = _storage.ref().child('profile_images/$userId.jpg');
+      //
+      final ref = _storage.ref().child('profile_images/$userId');
       
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -53,8 +54,8 @@ class ImageService {
         throw 'Usuario no autenticado';
       }
       
-      
-      final ref = _storage.ref().child('reports/$reportId.jpg');
+      //
+      final ref = _storage.ref().child('reports/$reportId');
       
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -71,7 +72,8 @@ class ImageService {
 
   Future<void> deleteProfileImage(String userId) async {
     try {
-      final ref = _storage.ref().child('profile_images/$userId.jpg');
+      //
+      final ref = _storage.ref().child('profile_images/$userId');
       await ref.delete();
     } catch (e) {
       throw 'Error al eliminar imagen: $e';
