@@ -60,13 +60,4 @@ class LocationService {
     return 'Lat: ${location.latitude.toStringAsFixed(6)}, Lng: ${location.longitude.toStringAsFixed(6)}';
   }
 
-  // Calcular distancia entre dos puntos (opcional)
-  // double calculateDistance(LocationData from, LocationData to) {
-  //   return Geolocator.distanceBetween(
-  //     from.latitude,
-  //     from.longitude,
-  //     to.latitude,
-  //     to.longitude,
-  //   );
-  // }
 }

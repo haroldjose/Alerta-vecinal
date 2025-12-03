@@ -9,6 +9,9 @@ import '../../widgets/custom_button.dart';
 import '../reports/create_report_screen.dart';
 import '../../models/report_model.dart';
 
+import '../settings/settings_screen.dart';
+import '../../providers/settings_provider.dart';
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -27,6 +30,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
     final reportsAsync = ref.watch(reportsStreamProvider);
+    final currentTheme = ref.watch(currentThemeProvider);
 
     // Escucha cambios en el provider de creación de reportes
     ref.listen<AsyncValue<void>>(createReportProvider, (previous, next) {
@@ -41,16 +45,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Alerta Vecinal'),
-        backgroundColor: AppColors.primary,
+        backgroundColor: currentTheme.primary,
         leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+          builder:
+              (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
         ),
         actions: [
           IconButton(
-            icon: Icon(_showFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              _showFilters ? Icons.filter_alt : Icons.filter_alt_outlined,
+            ),
             onPressed: () {
               setState(() {
                 _showFilters = !_showFilters;
@@ -75,54 +91,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   // Panel de filtros
                   if (_showFilters) _buildFiltersPanel(),
-                  
+
                   // Lista de reportes
                   Expanded(
-                    child: filteredReports.isEmpty
-                        ? _buildEmptyState(context)
-                        : _buildReportsList(filteredReports),
+                    child:
+                        filteredReports.isEmpty
+                            ? _buildEmptyState(context)
+                            : _buildReportsList(filteredReports),
                   ),
                 ],
               );
             },
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-            error: (error, stack) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error al cargar reportes',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            loading:
+                () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+            error:
+                (error, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error al cargar reportes',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => ref.refresh(reportsStreamProvider),
+                        child: const Text('Reintentar'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    error.toString(),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => ref.refresh(reportsStreamProvider),
-                    child: const Text('Reintentar'),
-                  ),
-                ],
-              ),
-            ),
+                ),
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-        error: (error, stack) => Center(
-          child: Text(
-            'Error: $error',
-            style: const TextStyle(color: AppColors.error),
-          ),
-        ),
+        loading:
+            () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+        error:
+            (error, stack) => Center(
+              child: Text(
+                'Error: $error',
+                style: const TextStyle(color: AppColors.error),
+              ),
+            ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -131,7 +156,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             MaterialPageRoute(builder: (context) => const CreateReportScreen()),
           );
         },
-        backgroundColor: AppColors.primary,
+        backgroundColor: currentTheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
@@ -139,9 +164,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // Panel de filtros
   Widget _buildFiltersPanel() {
-    final hasActiveFilters = _selectedProblemType != null || 
-                             _selectedStatus != null || 
-                             _selectedDateRange != null;
+    final hasActiveFilters =
+        _selectedProblemType != null ||
+        _selectedStatus != null ||
+        _selectedDateRange != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -192,31 +218,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
-                children: ProblemType.values.map((type) {
-                  final isSelected = _selectedProblemType == type;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(type.displayName),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedProblemType = selected ? type : null;
-                        });
-                      },
-                      backgroundColor: Colors.grey[100],
-                      selectedColor: Color(type.borderColor).withValues(alpha: 0.2),
-                      checkmarkColor: Color(type.borderColor),
-                      labelStyle: TextStyle(
-                        color: isSelected ? Color(type.borderColor) : AppColors.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? Color(type.borderColor) : Colors.transparent,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                children:
+                    ProblemType.values.map((type) {
+                      final isSelected = _selectedProblemType == type;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(type.displayName),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedProblemType = selected ? type : null;
+                            });
+                          },
+                          backgroundColor: Colors.grey[100],
+                          selectedColor: Color(
+                            type.borderColor,
+                          ).withValues(alpha: 0.2),
+                          checkmarkColor: Color(type.borderColor),
+                          labelStyle: TextStyle(
+                            color:
+                                isSelected
+                                    ? Color(type.borderColor)
+                                    : AppColors.textSecondary,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                          ),
+                          side: BorderSide(
+                            color:
+                                isSelected
+                                    ? Color(type.borderColor)
+                                    : Colors.transparent,
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
             ),
           ),
@@ -228,31 +266,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
-                children: ReportStatus.values.map((status) {
-                  final isSelected = _selectedStatus == status;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(status.displayName),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedStatus = selected ? status : null;
-                        });
-                      },
-                      backgroundColor: Colors.grey[100],
-                      selectedColor: Color(status.color).withValues(alpha: 0.2),
-                      checkmarkColor: Color(status.color),
-                      labelStyle: TextStyle(
-                        color: isSelected ? Color(status.color) : AppColors.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? Color(status.color) : Colors.transparent,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                children:
+                    ReportStatus.values.map((status) {
+                      final isSelected = _selectedStatus == status;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(status.displayName),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedStatus = selected ? status : null;
+                            });
+                          },
+                          backgroundColor: Colors.grey[100],
+                          selectedColor: Color(
+                            status.color,
+                          ).withValues(alpha: 0.2),
+                          checkmarkColor: Color(status.color),
+                          labelStyle: TextStyle(
+                            color:
+                                isSelected
+                                    ? Color(status.color)
+                                    : AppColors.textSecondary,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                          ),
+                          side: BorderSide(
+                            color:
+                                isSelected
+                                    ? Color(status.color)
+                                    : Colors.transparent,
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
             ),
           ),
@@ -275,7 +325,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 OutlinedButton.icon(
                   onPressed: _selectDateRange,
                   icon: Icon(
-                    _selectedDateRange != null ? Icons.date_range : Icons.calendar_today,
+                    _selectedDateRange != null
+                        ? Icons.date_range
+                        : Icons.calendar_today,
                     size: 18,
                   ),
                   label: Text(
@@ -284,13 +336,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         : 'Seleccionar rango',
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _selectedDateRange != null 
-                        ? AppColors.primary 
-                        : AppColors.textSecondary,
+                    foregroundColor:
+                        _selectedDateRange != null
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
                     side: BorderSide(
-                      color: _selectedDateRange != null 
-                          ? AppColors.primary 
-                          : Colors.grey[300]!,
+                      color:
+                          _selectedDateRange != null
+                              ? AppColors.primary
+                              : Colors.grey[300]!,
                     ),
                   ),
                 ),
@@ -348,9 +402,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // Estado vacío
   Widget _buildEmptyState(BuildContext context) {
-    final hasActiveFilters = _selectedProblemType != null || 
-                             _selectedStatus != null || 
-                             _selectedDateRange != null;
+    final hasActiveFilters =
+        _selectedProblemType != null ||
+        _selectedStatus != null ||
+        _selectedDateRange != null;
 
     return Center(
       child: Padding(
@@ -365,7 +420,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              hasActiveFilters 
+              hasActiveFilters
                   ? 'No se encontraron reportes con estos filtros'
                   : 'No se tienen reportes',
               style: TextStyle(
@@ -407,27 +462,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Filtrar por tipo de problema
     if (_selectedProblemType != null) {
-      filtered = filtered.where((report) => report.problemType == _selectedProblemType).toList();
+      filtered =
+          filtered
+              .where((report) => report.problemType == _selectedProblemType)
+              .toList();
     }
 
     // Filtrar por estado
     if (_selectedStatus != null) {
-      filtered = filtered.where((report) => report.status == _selectedStatus).toList();
+      filtered =
+          filtered.where((report) => report.status == _selectedStatus).toList();
     }
 
     // Filtrar por fecha
     if (_selectedDateRange != null) {
-      filtered = filtered.where((report) {
-        final reportDate = report.createdAt;
-        final startDate = DateTime(_selectedDateRange!.start.year, 
-                                   _selectedDateRange!.start.month, 
-                                   _selectedDateRange!.start.day);
-        final endDate = DateTime(_selectedDateRange!.end.year, 
-                                 _selectedDateRange!.end.month, 
-                                 _selectedDateRange!.end.day, 23, 59, 59);
-        return reportDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-               reportDate.isBefore(endDate.add(const Duration(seconds: 1)));
-      }).toList();
+      filtered =
+          filtered.where((report) {
+            final reportDate = report.createdAt;
+            final startDate = DateTime(
+              _selectedDateRange!.start.year,
+              _selectedDateRange!.start.month,
+              _selectedDateRange!.start.day,
+            );
+            final endDate = DateTime(
+              _selectedDateRange!.end.year,
+              _selectedDateRange!.end.month,
+              _selectedDateRange!.end.day,
+              23,
+              59,
+              59,
+            );
+            return reportDate.isAfter(
+                  startDate.subtract(const Duration(seconds: 1)),
+                ) &&
+                reportDate.isBefore(endDate.add(const Duration(seconds: 1)));
+          }).toList();
     }
 
     return filtered;
@@ -444,6 +513,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // Seleccionar rango de fechas
   Future<void> _selectDateRange() async {
+    final currentTheme = ref.read(currentThemeProvider); 
+
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
@@ -452,8 +523,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
+              colorScheme: ColorScheme.light(
+              primary: currentTheme.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: AppColors.textPrimary,
