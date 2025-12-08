@@ -23,10 +23,8 @@ class CustomDrawer extends ConsumerStatefulWidget {
 
 class _CustomDrawerState extends ConsumerState<CustomDrawer> {
   Future<void> _changeProfileImage(UserModel user) async {
-    print('Iniciando cambio de imagen de perfil para usuario: ${user.id}');
-
+  
     try {
-      print('Mostrando opciones de imagen...');
 
       // Usar ImagePicker directamente en lugar del servicio
       final ImageSource? source = await showDialog<ImageSource?>(
@@ -60,18 +58,10 @@ class _CustomDrawerState extends ConsumerState<CustomDrawer> {
       );
 
       if (source != null) {
-        print(
-          'Fuente seleccionada: ${source == ImageSource.camera ? 'Cámara' : 'Galería'}',
-        );
-
         final ImagePicker picker = ImagePicker();
 
-        // Agregar un delay pequeño para permitir que el diálogo se cierre completamente
         await Future.delayed(const Duration(milliseconds: 500));
 
-        print(
-          'Abriendo ${source == ImageSource.camera ? 'cámara' : 'galería'}...',
-        );
 
         final XFile? image = await picker.pickImage(
           source: source,
@@ -81,29 +71,19 @@ class _CustomDrawerState extends ConsumerState<CustomDrawer> {
           preferredCameraDevice: CameraDevice.rear,
         );
 
-        print('Resultado del picker: ${image?.path ?? 'null'}');
-
         if (image != null) {
           final File imageFile = File(image.path);
 
-          // Verificar que el archivo existe y tiene contenido
           if (await imageFile.exists()) {
             final fileSize = await imageFile.length();
-            print('Imagen seleccionada: ${imageFile.path} ($fileSize bytes)');
 
             if (fileSize > 0) {
-              print('Subiendo imagen a Firebase...');
-
               // Subir imagen usando el provider
               await ref
                   .read(profileImageProvider.notifier)
                   .uploadProfileImage(imageFile, user.id);
 
-              print('Invalidando provider del usuario...');
-              // Importante: Invalidar el provider del usuario actual para refrescar la UI
               ref.invalidate(currentUserProvider);
-
-              print('Proceso completado exitosamente');
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -114,22 +94,19 @@ class _CustomDrawerState extends ConsumerState<CustomDrawer> {
                 );
               }
             } else {
-              print('Error: El archivo está vacío');
               throw 'El archivo seleccionado está vacío';
             }
           } else {
-            print('Error: El archivo no existe');
             throw 'No se pudo acceder al archivo seleccionado';
           }
         } else {
-          print('No se seleccionó ninguna imagen del picker');
+          'No se seleccionó ninguna imagen del picker';
         }
       } else {
-        print('No se seleccionó ninguna fuente');
+        'No se seleccionó ninguna fuente';
       }
     } catch (e, stackTrace) {
-      print('Error en _changeProfileImage: $e');
-      print('StackTrace: $stackTrace');
+      'Error en _changeProfileImage: $e, StackTrace: $stackTrace';
 
       if (mounted) {
         String errorMessage = 'Error desconocido';
@@ -184,7 +161,7 @@ class _CustomDrawerState extends ConsumerState<CustomDrawer> {
   }
 
   void _navigateToMyReports() {
-    Navigator.pop(context); // Cerrar drawer
+    Navigator.pop(context); 
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const MyReportsScreen()),
@@ -211,7 +188,6 @@ class _CustomDrawerState extends ConsumerState<CustomDrawer> {
       next.when(
         data: (imageUrl) {
           if (previous?.isLoading == true && imageUrl != null) {
-            // La imagen se subió exitosamente, invalidamos el provider del usuario
             ref.invalidate(currentUserProvider);
           }
         },
@@ -271,8 +247,9 @@ class _CustomDrawerState extends ConsumerState<CustomDrawer> {
                                           child,
                                           loadingProgress,
                                         ) {
-                                          if (loadingProgress == null)
+                                          if (loadingProgress == null) {
                                             return child;
+                                          }
                                           return const Center(
                                             child: CircularProgressIndicator(
                                               color: AppColors.primary,

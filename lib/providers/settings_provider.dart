@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// import '../core/constants/colors.dart';
 
 // Lista de temas predefinidos
 class AppTheme {
@@ -100,7 +99,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         notificationsEnabled: notificationsEnabled,
       );
     } catch (e) {
-      print('Error loading settings: $e');
+      'Error loading settings: $e';
     }
   }
 
@@ -112,7 +111,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       await prefs.setInt(_themeKey, themeIndex);
       state = state.copyWith(selectedThemeIndex: themeIndex);
     } catch (e) {
-      print('Error saving theme: $e');
+      'Error saving theme: $e';
     }
   }
 
@@ -122,7 +121,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       await prefs.setBool(_notificationsKey, enabled);
       state = state.copyWith(notificationsEnabled: enabled);
     } catch (e) {
-      print('Error saving notifications setting: $e');
+      'Error saving notifications setting: $e';
     }
   }
 
@@ -133,7 +132,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       await prefs.remove(_notificationsKey);
       state = const SettingsState();
     } catch (e) {
-      print('Error resetting settings: $e');
+      'Error resetting settings: $e';
     }
   }
 }

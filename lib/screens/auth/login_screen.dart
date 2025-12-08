@@ -272,8 +272,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     
                     const SizedBox(height: 24),
                     
-                    // Botón para reestablecer contraseña (posible funcionalidad futura)
-                    
                   ],
                 ),
               ),

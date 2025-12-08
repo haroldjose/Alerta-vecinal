@@ -131,31 +131,36 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
     final createReportState = ref.watch(createReportProvider);
     final isAdmin = currentUser.value?.role == UserRole.admin;
 
-    // Escucha cambios en el estado de creación
     ref.listen<AsyncValue<void>>(createReportProvider, (previous, next) {
-  next.when(
-    data: (_) {
+  
       if (previous?.isLoading == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reporte creado exitosamente'),
-            backgroundColor: AppColors.success,
-          ),
+        next.when(
+          data: (_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Reporte creado exitosamente'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+              
+              Navigator.pop(context, true);
+            }
+          },
+          loading: () {}, 
+          error: (error, stack) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: $error'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          },
         );
-        Navigator.pop(context, true); 
       }
-    },
-    loading: () {},
-    error: (error, stack) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $error'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    },
-  );
-});
+    });
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -520,3 +525,4 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
     );
   }
 }
+

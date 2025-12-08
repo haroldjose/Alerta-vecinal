@@ -8,7 +8,7 @@ import 'connectivity_service.dart';
 import 'image_service.dart';
 import 'notification_service.dart';
 
-/// Servicio para sincronizar datos entre local y Firebase
+// Servicio para sincronizar datos entre local y Firebase
 class SyncService {
   static final SyncService _instance = SyncService._internal();
   factory SyncService() => _instance;
@@ -28,35 +28,32 @@ class SyncService {
   final StreamController<SyncStatus> _syncStatusController = 
       StreamController<SyncStatus>.broadcast();
 
-  /// Stream del estado de sincronización
+  // Stream del estado de sincronización
   Stream<SyncStatus> get syncStatus => _syncStatusController.stream;
 
-  /// Inicializar el servicio de sincronización
+  // Inicializar el servicio de sincronización
   Future<void> initialize() async {
-    // Escuchar cambios de conectividad para sincronizar automáticamente
+    
     _connectivitySubscription = _connectivity.connectionStatus.listen((hasConnection) async {
       if (hasConnection) {
-        print('🔄 Conexión restaurada, iniciando sincronización automática...');
         
-        // Sincronizar inmediatamente (sin await para no bloquear)
+        // Sincronizar inmediatamente 
         syncAll().catchError((error) {
-          print('❌ Error en sincronización automática: $error');
+          'Error en sincronización automática: $error';
         });
         
-        // Suscribirse a Firebase si aún no está suscrito
         if (_reportsSubscription == null) {
           _subscribeToFirebaseChanges();
         }
 
-        // Iniciar sincronización periódica si hay operaciones pendientes
         _startPeriodicSync();
       } else {
-        // Detener sincronización periódica cuando no hay conexión
+        
         _stopPeriodicSync();
       }
     });
 
-    // Escuchar cambios en Firebase para actualizar cache local (solo si hay conexión)
+    // Escuchar cambios en Firebase para actualizar cache local 
     if (_connectivity.hasConnection) {
       _subscribeToFirebaseChanges();
     }
@@ -66,17 +63,15 @@ class SyncService {
       await syncAll();
       _startPeriodicSync();
     } else {
-      print('📵 Iniciando en modo offline');
+      'Iniciando en modo offline';
     }
-
-    print('✅ SyncService inicializado');
   }
 
-  /// Suscribirse a cambios en Firebase (solo si hay conexión)
+  /// Suscribirse a cambios en Firebase
   void _subscribeToFirebaseChanges() {
-    // Solo suscribirse si hay conexión inicial
+    
     if (!_connectivity.hasConnection) {
-      print('📵 Sin conexión, no se suscribe a Firebase todavía');
+      
       return;
     }
 
@@ -88,14 +83,14 @@ class SyncService {
         await _updateLocalCache(snapshot.docs);
       }
     }, onError: (error) {
-      // Silenciar errores de conexión
+      
       if (!error.toString().contains('UNAVAILABLE')) {
-        print('❌ Error en stream de Firebase: $error');
+        
       }
     });
   }
 
-  /// Actualizar caché local con datos de Firebase
+  // Actualizar caché local con datos de Firebase
   Future<void> _updateLocalCache(List<QueryDocumentSnapshot> docs) async {
     try {
       for (var doc in docs) {
@@ -103,21 +98,19 @@ class SyncService {
         final localReport = LocalReportModel.fromReportModel(report, isSynced: true);
         await _localStorage.saveReport(localReport);
       }
-      print('📦 Cache local actualizado: ${docs.length} reportes');
+      
     } catch (e) {
-      print('❌ Error al actualizar cache local: $e');
+      'Error al actualizar cache local: $e';
     }
   }
 
-  /// Sincronizar todo (operaciones pendientes + cache)
+  // Sincronizar todo 
   Future<void> syncAll() async {
     if (_isSyncing) {
-      print('⚠️ Sincronización ya en progreso');
       return;
     }
 
     if (!_connectivity.hasConnection) {
-      print('⚠️ Sin conexión, sincronización cancelada');
       _syncStatusController.add(SyncStatus.offline);
       return;
     }
@@ -126,8 +119,7 @@ class SyncService {
     _syncStatusController.add(SyncStatus.syncing);
 
     try {
-      print('🔄 Iniciando sincronización completa...');
-
+      
       // 1. Sincronizar operaciones pendientes
       await _syncPendingOperations();
 
@@ -135,40 +127,36 @@ class SyncService {
       await _downloadLatestReports();
 
       _syncStatusController.add(SyncStatus.synced);
-      print('✅ Sincronización completada exitosamente');
+      
     } catch (e) {
       _syncStatusController.add(SyncStatus.error);
-      print('❌ Error en sincronización: $e');
+      
     } finally {
       _isSyncing = false;
     }
   }
 
-  /// Sincronizar operaciones pendientes
+  // Sincronizar operaciones pendientes
   Future<void> _syncPendingOperations() async {
     final operations = _localStorage.getPendingOperations();
     
     if (operations.isEmpty) {
-      print('✅ No hay operaciones pendientes');
+      
       return;
     }
-
-    print('📝 Sincronizando ${operations.length} operaciones pendientes...');
 
     for (var operation in operations) {
       try {
         await _executePendingOperation(operation);
         await _localStorage.removePendingOperation(operation.id);
-        print('✅ Operación sincronizada: ${operation.type}');
+        
       } catch (e) {
-        print('❌ Error al sincronizar operación ${operation.id}: $e');
+        'Error al sincronizar operación ${operation.id}: $e';
         
         // Incrementar contador de reintentos
         final newRetryCount = operation.retryCount + 1;
         if (newRetryCount >= 5) {
-          // Después de 5 intentos, eliminar la operación
           await _localStorage.removePendingOperation(operation.id);
-          print('🗑️ Operación eliminada después de 5 intentos fallidos');
         } else {
           await _localStorage.updateOperationRetryCount(operation.id, newRetryCount);
         }
@@ -192,11 +180,11 @@ class SyncService {
         await _syncUpdateStatus(operation);
         break;
       default:
-        print('⚠️ Tipo de operación desconocido: ${operation.type}');
+        'Tipo de operación desconocido: ${operation.type}';
     }
   }
 
-  /// Sincronizar creación de reporte
+  // Sincronizar creación de reporte
   Future<void> _syncCreateReport(PendingOperation operation) async {
     final data = operation.data;
     String? imageUrl;
@@ -244,7 +232,7 @@ class SyncService {
     }
   }
 
-  /// Sincronizar actualización de reporte
+  // Sincronizar actualización de reporte
   Future<void> _syncUpdateReport(PendingOperation operation) async {
     final data = operation.data;
     String? imageUrl = data['existingImageUrl'] as String?;
@@ -277,14 +265,14 @@ class SyncService {
     }
   }
 
-  /// Sincronizar eliminación de reporte
+  // Sincronizar eliminación de reporte
   Future<void> _syncDeleteReport(PendingOperation operation) async {
     await _firestore.collection('reports').doc(operation.reportId).delete();
     await _localStorage.deleteReport(operation.reportId);
     await _localStorage.deleteLocalImage(operation.reportId);
   }
 
-  /// Sincronizar actualización de estado
+  // Sincronizar actualización de estado
   Future<void> _syncUpdateStatus(PendingOperation operation) async {
     final data = operation.data;
     await _firestore.collection('reports').doc(operation.reportId).update({
@@ -304,43 +292,42 @@ class SyncService {
     }
   }
 
-  /// Descargar reportes más recientes de Firebase
+  // Descargar reportes más recientes de Firebase
   Future<void> _downloadLatestReports() async {
     try {
       final snapshot = await _firestore
           .collection('reports')
           .orderBy('createdAt', descending: true)
-          .limit(100) // Limitar para no sobrecargar
+          .limit(100) 
           .get();
 
       await _updateLocalCache(snapshot.docs);
     } catch (e) {
-      print('❌ Error al descargar reportes: $e');
+      'Error al descargar reportes: $e';
     }
   }
 
-  /// Iniciar sincronización periódica (cada 10 segundos)
+  // Iniciar sincronización periódica (cada 10 segundos)
   void _startPeriodicSync() {
-    _stopPeriodicSync(); // Detener cualquier timer anterior
+    _stopPeriodicSync(); 
     
     _periodicSyncTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
       if (_connectivity.hasConnection) {
         final pendingOps = _localStorage.getPendingOperations();
         if (pendingOps.isNotEmpty) {
-          print('🔄 Sincronización periódica: ${pendingOps.length} operaciones pendientes');
           await syncAll();
         }
       }
     });
   }
 
-  /// Detener sincronización periódica
+  // Detener sincronización periódica
   void _stopPeriodicSync() {
     _periodicSyncTimer?.cancel();
     _periodicSyncTimer = null;
   }
 
-  /// Disponer recursos
+  // Disponer recursos
   void dispose() {
     _connectivitySubscription?.cancel();
     _reportsSubscription?.cancel();
@@ -349,7 +336,7 @@ class SyncService {
   }
 }
 
-/// Estados de sincronización
+// Estados de sincronización
 enum SyncStatus {
   idle,
   syncing,

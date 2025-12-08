@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/reports_provider.dart';
 import '../core/services/sync_service.dart';
 
-/// Widget para mostrar el estado de conexión y sincronización
+// Widget para mostrar el estado de conexión y sincronización
 class SyncStatusWidget extends ConsumerWidget {
   const SyncStatusWidget({super.key});
 
@@ -153,7 +153,7 @@ class SyncStatusWidget extends ConsumerWidget {
   }
 }
 
-/// Banner simple para mostrar en la parte superior de las pantallas
+/// Banner 
 class SyncStatusBanner extends ConsumerWidget {
   const SyncStatusBanner({super.key});
 

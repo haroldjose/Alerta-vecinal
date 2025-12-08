@@ -217,7 +217,7 @@ class _LocationWidgetState extends State<LocationWidget> {
   }
 }
 
-// Widget compacto para ubicación en cards (sin mapa)
+// Widget compacto para ubicación en cards
 class CompactLocationWidget extends StatelessWidget {
   final LocationData location;
 

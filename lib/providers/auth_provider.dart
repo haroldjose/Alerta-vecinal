@@ -45,7 +45,6 @@ class AuthService {
     String? cargo,
   }) async {
     try {
-      // Crear usuario en Firebase Auth
       final UserCredential credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -53,7 +52,6 @@ class AuthService {
 
       final User? firebaseUser = credential.user;
       if (firebaseUser != null) {
-        // Crear modelo del usuario
         final userModel = UserModel(
           id: firebaseUser.uid,
           name: name,
@@ -63,16 +61,13 @@ class AuthService {
           createdAt: DateTime.now(),
         );
 
-        // Guardar en Firestore
         await _firestore
             .collection('users')
             .doc(firebaseUser.uid)
             .set(userModel.toFirestore());
 
-        // Actualiza el displayName del usuario en Firebase Auth
         await firebaseUser.updateDisplayName(name);
         
-        // Guardar token FCM del nuevo usuario
         await _notificationService.saveUserToken(firebaseUser.uid);
         
         return userModel;
@@ -107,7 +102,7 @@ class AuthService {
             .get();
         
         if (doc.exists) {
-          // Guardar token FCM al iniciar sesión
+          
           await _notificationService.saveUserToken(firebaseUser.uid);
           return UserModel.fromFirestore(doc);
         } else {
@@ -155,7 +150,7 @@ class AuthService {
           return UserModel.fromFirestore(doc);
         }
       } catch (e) {
-        // Error silencioso
+        'Error ';
       }
     }
     return null;
