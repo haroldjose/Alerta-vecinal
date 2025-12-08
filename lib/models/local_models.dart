@@ -154,14 +154,14 @@ class LocalReportModel extends HiveObject {
   }
 }
 
-/// Operaciones pendientes de sincronización
+// Operaciones pendientes de sincronización
 @HiveType(typeId: 1)
 class PendingOperation extends HiveObject {
   @HiveField(0)
   final String id;
 
   @HiveField(1)
-  final String type; // 'create', 'update', 'delete', 'updateStatus'
+  final String type; 
 
   @HiveField(2)
   final String reportId;
@@ -203,7 +203,7 @@ class PendingOperation extends HiveObject {
   }
 }
 
-/// Adaptador para User (caché básico)
+// Adaptador para User (caché básico)
 @HiveType(typeId: 2)
 class LocalUserModel extends HiveObject {
   @HiveField(0)

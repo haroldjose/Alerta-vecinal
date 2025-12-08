@@ -150,30 +150,35 @@ class _EditReportScreenState extends ConsumerState<EditReportScreen> {
   Widget build(BuildContext context) {
     final editReportState = ref.watch(editReportProvider);
 
-    // Escucha cambios en el estado de edición
     ref.listen<AsyncValue<void>>(editReportProvider, (previous, next) {
-      next.when(
-        data: (_) {
-          if (previous?.isLoading == true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Reporte actualizado exitosamente'),
-                backgroundColor: AppColors.success,
-              ),
-            );
-            Navigator.pop(context, true);
-          }
-        },
-        loading: () {},
-        error: (error, stack) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $error'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        },
-      );
+      
+      if (previous?.isLoading == true) {
+        next.when(
+          data: (_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Reporte actualizado exitosamente'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+              
+              Navigator.pop(context, true);
+            }
+          },
+          loading: () {}, 
+          error: (error, stack) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: $error'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          },
+        );
+      }
     });
 
     return Scaffold(
@@ -231,7 +236,7 @@ class _EditReportScreenState extends ConsumerState<EditReportScreen> {
 
               const SizedBox(height: 24),
 
-              // Fecha de creación (solo lectura)
+              // Fecha de creación 
               const Text(
                 'Fecha de creación',
                 style: TextStyle(
@@ -262,7 +267,7 @@ class _EditReportScreenState extends ConsumerState<EditReportScreen> {
 
               const SizedBox(height: 24),
 
-              // Estado actual (solo lectura)
+              // Estado actual 
               const Text(
                 'Estado actual',
                 style: TextStyle(
@@ -469,7 +474,7 @@ class _EditReportScreenState extends ConsumerState<EditReportScreen> {
 
               const SizedBox(height: 24),
 
-              // Ubicación (SIN MAPA - solo texto y botón)
+              // Ubicación 
               const Text(
                 'Ubicación',
                 style: TextStyle(
@@ -604,3 +609,4 @@ class _EditReportScreenState extends ConsumerState<EditReportScreen> {
     return '${date.day}/${date.month}/${date.year} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
+

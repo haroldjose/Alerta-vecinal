@@ -86,7 +86,6 @@ class ProblemTypeScreen extends ConsumerWidget {
           // Mostrar reportes filtrados
           return Column(
             children: [
-              // Header con estadísticas
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.all(16),
@@ -207,7 +206,6 @@ class ProblemTypeScreen extends ConsumerWidget {
             ),
           );
           
-          // Invalidar provider cuando regrese de crear reporte
           if (result == true || context.mounted) {
             ref.invalidate(reportsByTypeProvider(problemType));
           }

@@ -149,12 +149,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
       ),
+
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const CreateReportScreen()),
           );
+
+          if (result == true) {
+            ref.invalidate(reportsStreamProvider);
+            
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
         },
         backgroundColor: currentTheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
@@ -513,7 +520,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // Seleccionar rango de fechas
   Future<void> _selectDateRange() async {
-    final currentTheme = ref.read(currentThemeProvider); 
+    final currentTheme = ref.read(currentThemeProvider);
 
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
@@ -523,7 +530,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-              colorScheme: ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: currentTheme.primary,
               onPrimary: Colors.white,
               surface: Colors.white,

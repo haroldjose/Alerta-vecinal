@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:alerta_vecinal/models/user_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/report_model.dart';
@@ -38,24 +39,22 @@ final syncStatusProvider = StreamProvider<SyncStatus>((ref) {
   return sync.syncStatus;
 });
 
-// Provider para el servicio de reportes (híbrido: local + Firebase)
+// Provider para el servicio de reportes local + Firebase
 final reportServiceProvider = Provider<ReportService>((ref) {
   return ReportService();
 });
 
-// 🔄 Provider HÍBRIDO para obtener todos los reportes (local + Firebase)
+// Provider para obtener todos los reportes local + Firebase
 final reportsStreamProvider = StreamProvider<List<ReportModel>>((ref) {
   final connectivity = ref.watch(connectivityServiceProvider);
   final localStorage = LocalStorageService();
 
   if (connectivity.hasConnection) {
-    // CON INTERNET: usar Firebase
     return FirebaseFirestore.instance
         .collection('reports')
         .orderBy('createdAt', descending: true)
         .snapshots()
         .handleError((error) {
-          // Si falla Firebase, retornar datos locales
           final localReports = localStorage.getAllReports();
           final reports = localReports.map((local) => local.toReportModel()).toList();
           reports.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -67,15 +66,14 @@ final reportsStreamProvider = StreamProvider<List<ReportModel>>((ref) {
               .toList();
         });
   } else {
-    // SIN INTERNET: usar datos locales como stream periódico
-    return Stream.periodic(const Duration(milliseconds: 500), (_) {
+    return Stream.periodic(const Duration(milliseconds: 100), (_) {
       final localReports = localStorage.getAllReports();
       final reports = localReports
           .map((local) => local.toReportModel())
           .toList();
       reports.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return reports;
-    }).distinct();
+    });
   }
 });
 
@@ -186,7 +184,6 @@ class ReportService {
   final LocalStorageService _localStorage = LocalStorageService();
   final ConnectivityService _connectivity = ConnectivityService();
 
-  // 🔄 Crear nuevo reporte (OFFLINE-FIRST) - CORREGIDO
   Future<void> createReport({
     required String userId,
     required String userName,
@@ -196,70 +193,57 @@ class ReportService {
     File? imageFile,
     LocationData? location,
   }) async {
-    try {
-      final reportId = _firestore.collection('reports').doc().id;
-      final now = DateTime.now();
-      String? localImagePath;
+    final reportId = _firestore.collection('reports').doc().id;
+    final now = DateTime.now();
+    String? localImagePath;
 
-      // Guardar imagen localmente si existe
-      if (imageFile != null) {
-        localImagePath = await _localStorage.saveLocalImage(imageFile, reportId);
-      }
+    if (imageFile != null) {
+      localImagePath = await _localStorage.saveLocalImage(imageFile, reportId);
+    }
 
-      // Crear reporte local
-      final localReport = LocalReportModel(
-        id: reportId,
+    // Crear reporte local
+    final localReport = LocalReportModel(
+      id: reportId,
+      userId: userId,
+      userName: userName,
+      problemType: problemType.value,
+      status: ReportStatus.pendiente.value,
+      title: title,
+      description: description,
+      localImagePath: localImagePath,
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      address: location?.address,
+      createdAt: now,
+      updatedAt: now,
+      isSynced: false,
+    );
+
+    // Guardar en almacenamiento local  
+    await _localStorage.saveReport(localReport);
+
+    // Intentar sincronizar en segundo plano 
+    if (_connectivity.hasConnection) {
+      _syncCreateToFirebase(
+        reportId: reportId,
         userId: userId,
         userName: userName,
-        problemType: problemType.value,
-        status: ReportStatus.pendiente.value,
+        problemType: problemType,
         title: title,
         description: description,
+        imageFile: imageFile,
+        location: location,
         localImagePath: localImagePath,
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-        address: location?.address,
-        createdAt: now,
-        updatedAt: now,
-        isSynced: false,
-      );
-
-      // Guardar en almacenamiento local PRIMERO
-      await _localStorage.saveReport(localReport);
-      print('✅ Reporte guardado localmente: $reportId');
-
-      // Intentar sincronizar SOLO si hay conexión
-      if (_connectivity.hasConnection) {
-        try {
-          await _syncCreateToFirebase(
-            reportId: reportId,
-            userId: userId,
-            userName: userName,
-            problemType: problemType,
-            title: title,
-            description: description,
-            imageFile: imageFile,
-            location: location,
-            localImagePath: localImagePath,
-            localReport: localReport,
-          );
-        } catch (e) {
-          // Si falla la sincronización, guardar como operación pendiente
-          print('⚠️ Error al sincronizar inmediatamente, se guardará para después: $e');
-          await _savePendingCreateOperation(localReport, localImagePath);
-        }
-      } else {
-        // SIN INTERNET: solo guardar operación pendiente
-        print('📵 Sin conexión, reporte guardado solo localmente');
-        await _savePendingCreateOperation(localReport, localImagePath);
-      }
-    } catch (e) {
-      print('❌ Error al crear reporte: $e');
-      throw 'Error al crear reporte: $e';
+        localReport: localReport,
+      ).catchError((e) {
+        _savePendingCreateOperation(localReport, localImagePath);
+      });
+    } else {
+      await _savePendingCreateOperation(localReport, localImagePath);
     }
+    
   }
 
-  // 🆕 MÉTODO SEPARADO para sincronizar con Firebase
   Future<void> _syncCreateToFirebase({
     required String reportId,
     required String userId,
@@ -274,15 +258,12 @@ class ReportService {
   }) async {
     String? imageUrl;
 
-    // Subir imagen a Firebase Storage
     if (imageFile != null) {
       final imageService = ImageService();
       imageUrl = await imageService.uploadReportImage(imageFile, reportId);
-      // Eliminar imagen local después de subirla
       await _localStorage.deleteLocalImage(reportId);
     }
 
-    // Crear reporte en Firestore
     final report = ReportModel(
       id: reportId,
       userId: userId,
@@ -299,22 +280,19 @@ class ReportService {
 
     await _firestore.collection('reports').doc(reportId).set(report.toFirestore());
 
-    // Actualizar reporte local como sincronizado
     await _localStorage.saveReport(
       localReport.copyWith(isSynced: true, imageUrl: imageUrl)
     );
 
-    // Enviar notificación
     _notificationService.sendReportNotificationToAll(
       reportId: reportId,
       reportTitle: title,
       reportType: problemType.displayName,
       creatorId: userId,
     ).catchError((error) {
-      print('⚠️ Error al enviar notificación: $error');
+      'Error al enviar notificación: $error';
     });
 
-    print('✅ Reporte sincronizado con Firebase: $reportId');
   }
 
   Future<void> _savePendingCreateOperation(
@@ -348,7 +326,6 @@ class ReportService {
     await _localStorage.addPendingOperation(operation);
   }
 
-  // 🔄 Actualizar reporte (OFFLINE-FIRST) - CORREGIDO
   Future<void> updateReport({
     required String reportId,
     required String userId,
@@ -359,79 +336,87 @@ class ReportService {
     String? existingImageUrl,
     LocationData? location,
   }) async {
-    try {
-      String? localImagePath;
+    String? localImagePath;
 
-      // Guardar nueva imagen localmente si existe
-      if (imageFile != null) {
-        localImagePath = await _localStorage.saveLocalImage(imageFile, reportId);
-      }
+    if (imageFile != null) {
+      localImagePath = await _localStorage.saveLocalImage(imageFile, reportId);
+    }
 
-      // Actualizar reporte local PRIMERO
-      final existingReport = _localStorage.getReport(reportId);
-      if (existingReport != null) {
-        final updatedReport = existingReport.copyWith(
-          problemType: problemType.value,
-          title: title,
-          description: description,
-          localImagePath: localImagePath ?? existingReport.localImagePath,
-          latitude: location?.latitude,
-          longitude: location?.longitude,
-          address: location?.address,
-          updatedAt: DateTime.now(),
-          isSynced: false,
-        );
+    // Actualizar reporte local
+    final existingReport = _localStorage.getReport(reportId);
+    if (existingReport != null) {
+      final updatedReport = existingReport.copyWith(
+        problemType: problemType.value,
+        title: title,
+        description: description,
+        localImagePath: localImagePath ?? existingReport.localImagePath,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+        address: location?.address,
+        updatedAt: DateTime.now(),
+        isSynced: false,
+      );
 
-        await _localStorage.saveReport(updatedReport);
-        print('✅ Reporte actualizado localmente: $reportId');
-      }
+      await _localStorage.saveReport(updatedReport);
+    }
 
-      // Intentar sincronizar SOLO si hay conexión
-      if (_connectivity.hasConnection) {
-        try {
-          String? imageUrl = existingImageUrl;
-          if (imageFile != null) {
-            final imageService = ImageService();
-            imageUrl = await imageService.uploadReportImage(imageFile, reportId);
-            await _localStorage.deleteLocalImage(reportId);
-          }
-
-          await _firestore.collection('reports').doc(reportId).update({
-            'problemType': problemType.value,
-            'title': title,
-            'description': description,
-            'imageUrl': imageUrl,
-            'location': location?.toMap(),
-            'updatedAt': Timestamp.fromDate(DateTime.now()),
-          });
-
-          // Marcar como sincronizado
-          final report = _localStorage.getReport(reportId);
-          if (report != null) {
-            await _localStorage.saveReport(
-              report.copyWith(isSynced: true, imageUrl: imageUrl)
-            );
-          }
-
-          print('✅ Reporte actualizado en Firebase: $reportId');
-        } catch (e) {
-          print('⚠️ Error al sincronizar actualización: $e');
-          await _savePendingUpdateOperation(
-            reportId, problemType, title, description, 
-            localImagePath, existingImageUrl, location
-          );
-        }
-      } else {
-        // SIN INTERNET: guardar operación pendiente
-        print('📵 Sin conexión, actualización guardada localmente');
-        await _savePendingUpdateOperation(
+    // Intentar sincronizar en segundo plano
+    if (_connectivity.hasConnection) {
+      _syncUpdateToFirebase(
+        reportId: reportId,
+        problemType: problemType,
+        title: title,
+        description: description,
+        imageFile: imageFile,
+        existingImageUrl: existingImageUrl,
+        location: location,
+        localImagePath: localImagePath,
+      ).catchError((e) {
+        _savePendingUpdateOperation(
           reportId, problemType, title, description,
           localImagePath, existingImageUrl, location
         );
-      }
-    } catch (e) {
-      print('❌ Error al actualizar reporte: $e');
-      throw 'Error al actualizar reporte: $e';
+      });
+    } else {
+      await _savePendingUpdateOperation(
+        reportId, problemType, title, description,
+        localImagePath, existingImageUrl, location
+      );
+    }
+  }
+
+  Future<void> _syncUpdateToFirebase({
+    required String reportId,
+    required ProblemType problemType,
+    required String title,
+    required String description,
+    File? imageFile,
+    String? existingImageUrl,
+    LocationData? location,
+    String? localImagePath,
+  }) async {
+    String? imageUrl = existingImageUrl;
+    
+    if (imageFile != null) {
+      final imageService = ImageService();
+      imageUrl = await imageService.uploadReportImage(imageFile, reportId);
+      await _localStorage.deleteLocalImage(reportId);
+    }
+
+    await _firestore.collection('reports').doc(reportId).update({
+      'problemType': problemType.value,
+      'title': title,
+      'description': description,
+      'imageUrl': imageUrl,
+      'location': location?.toMap(),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+
+    final report = _localStorage.getReport(reportId);
+    if (report != null) {
+      await _localStorage.saveReport(
+        report.copyWith(isSynced: true, imageUrl: imageUrl)
+      );
     }
   }
 
@@ -462,95 +447,81 @@ class ReportService {
     await _localStorage.addPendingOperation(operation);
   }
 
-  // Actualizar estado del reporte (solo admin)
   Future<void> updateReportStatus(String reportId, ReportStatus status) async {
-    try {
-      // Actualizar local
-      final report = _localStorage.getReport(reportId);
-      if (report != null) {
-        await _localStorage.saveReport(
-          report.copyWith(status: status.value, isSynced: false)
-        );
-      }
+    
+    final report = _localStorage.getReport(reportId);
+    if (report != null) {
+      await _localStorage.saveReport(
+        report.copyWith(status: status.value, isSynced: false, updatedAt: DateTime.now())
+      );
+    }
 
-      if (_connectivity.hasConnection) {
-        try {
-          await _firestore.collection('reports').doc(reportId).update({
-            'status': status.value,
-            'updatedAt': Timestamp.fromDate(DateTime.now()),
-          });
-
-          if (report != null) {
-            await _localStorage.saveReport(
-              report.copyWith(status: status.value, isSynced: true)
-            );
-          }
-        } catch (e) {
-          print('⚠️ Error al actualizar estado: $e');
-          // Guardar operación pendiente
-          final operation = PendingOperation(
-            id: '${reportId}_status',
-            type: 'updateStatus',
-            reportId: reportId,
-            data: {'status': status.value},
-            timestamp: DateTime.now(),
-          );
-          await _localStorage.addPendingOperation(operation);
-        }
-      } else {
-        // Guardar operación pendiente
-        final operation = PendingOperation(
-          id: '${reportId}_status',
-          type: 'updateStatus',
-          reportId: reportId,
-          data: {'status': status.value},
-          timestamp: DateTime.now(),
-        );
-        await _localStorage.addPendingOperation(operation);
-      }
-    } catch (e) {
-      throw 'Error al actualizar estado: $e';
+    // Intentar sincronizar en segundo plano
+    if (_connectivity.hasConnection) {
+      _syncStatusToFirebase(reportId, status).catchError((e) {
+        _savePendingStatusOperation(reportId, status);
+      });
+    } else {
+      await _savePendingStatusOperation(reportId, status);
     }
   }
 
-  // Eliminar reporte (solo admin)
+  Future<void> _syncStatusToFirebase(String reportId, ReportStatus status) async {
+    await _firestore.collection('reports').doc(reportId).update({
+      'status': status.value,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+
+    final report = _localStorage.getReport(reportId);
+    if (report != null) {
+      await _localStorage.saveReport(
+        report.copyWith(status: status.value, isSynced: true)
+      );
+    }
+    
+  }
+
+  Future<void> _savePendingStatusOperation(String reportId, ReportStatus status) async {
+    final operation = PendingOperation(
+      id: '${reportId}_status',
+      type: 'updateStatus',
+      reportId: reportId,
+      data: {'status': status.value},
+      timestamp: DateTime.now(),
+    );
+    await _localStorage.addPendingOperation(operation);
+  }
+
   Future<void> deleteReport(String reportId) async {
-    try {
-      if (_connectivity.hasConnection) {
-        try {
-          await _firestore.collection('reports').doc(reportId).delete();
-        } catch (e) {
-          print('⚠️ Error al eliminar en Firebase: $e');
-          // Guardar operación pendiente
-          final operation = PendingOperation(
-            id: '${reportId}_delete',
-            type: 'delete',
-            reportId: reportId,
-            data: {},
-            timestamp: DateTime.now(),
-          );
-          await _localStorage.addPendingOperation(operation);
-        }
-      } else {
-        // Guardar operación pendiente
-        final operation = PendingOperation(
-          id: '${reportId}_delete',
-          type: 'delete',
-          reportId: reportId,
-          data: {},
-          timestamp: DateTime.now(),
-        );
-        await _localStorage.addPendingOperation(operation);
-      }
+    
+    await _localStorage.deleteReport(reportId);
+    await _localStorage.deleteLocalImage(reportId);
 
-      await _localStorage.deleteReport(reportId);
-      await _localStorage.deleteLocalImage(reportId);
-    } catch (e) {
-      throw 'Error al eliminar reporte: $e';
+    // Intentar sincronizar en segundo plano
+    if (_connectivity.hasConnection) {
+      _syncDeleteToFirebase(reportId).catchError((e) {
+        _savePendingDeleteOperation(reportId);
+      });
+    } else {
+      await _savePendingDeleteOperation(reportId);
     }
   }
 
-  // Obtener reportes por usuario (híbrido)
+  Future<void> _syncDeleteToFirebase(String reportId) async {
+    await _firestore.collection('reports').doc(reportId).delete();
+  }
+
+  Future<void> _savePendingDeleteOperation(String reportId) async {
+    final operation = PendingOperation(
+      id: '${reportId}_delete',
+      type: 'delete',
+      reportId: reportId,
+      data: {},
+      timestamp: DateTime.now(),
+    );
+    await _localStorage.addPendingOperation(operation);
+  }
+
   Stream<List<ReportModel>> getReportsByUser(String userId) {
     if (_connectivity.hasConnection) {
       return _firestore
@@ -596,6 +567,7 @@ class CreateReportNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       final reportService = ref.read(reportServiceProvider);
+      
       await reportService.createReport(
         userId: currentUser.id,
         userName: currentUser.name,
@@ -606,6 +578,7 @@ class CreateReportNotifier extends StateNotifier<AsyncValue<void>> {
         location: location,
       );
 
+      // Invalidar providers
       ref.invalidate(reportsStreamProvider);
       ref.invalidate(myReportsStreamProvider(currentUser.id));
       ref.invalidate(myReportsCountProvider);
@@ -613,7 +586,9 @@ class CreateReportNotifier extends StateNotifier<AsyncValue<void>> {
         ref.invalidate(reportsByTypeProvider(type));
       }
 
+      await Future.delayed(const Duration(milliseconds: 100));
       state = const AsyncValue.data(null);
+      
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
     }
@@ -647,12 +622,14 @@ class EditReportNotifier extends StateNotifier<AsyncValue<void>> {
       if (currentUser == null) {
         throw 'Usuario no autenticado';
       }
-
-      if (currentUser.id != userId) {
+      
+      final isAdmin = currentUser.role == UserRole.admin;
+      if (!isAdmin && currentUser.id != userId) {
         throw 'No tienes permiso para editar este reporte';
       }
 
       final reportService = ref.read(reportServiceProvider);
+      
       await reportService.updateReport(
         reportId: reportId,
         userId: userId,
@@ -664,13 +641,16 @@ class EditReportNotifier extends StateNotifier<AsyncValue<void>> {
         location: location,
       );
 
+      // Invalidar providers
       ref.invalidate(reportsStreamProvider);
       ref.invalidate(myReportsStreamProvider(userId));
       for (final type in ProblemType.values) {
         ref.invalidate(reportsByTypeProvider(type));
       }
 
+      await Future.delayed(const Duration(milliseconds: 100));
       state = const AsyncValue.data(null);
+      
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
     }
@@ -692,6 +672,4 @@ final editReportProvider =
     StateNotifierProvider<EditReportNotifier, AsyncValue<void>>((ref) {
       return EditReportNotifier(ref);
     });
-
-
 

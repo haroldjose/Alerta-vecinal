@@ -7,7 +7,6 @@ class LocationService {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Verificar si el servicio de ubicación está habilitado
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw 'Los servicios de ubicación están deshabilitados';
@@ -41,7 +40,6 @@ class LocationService {
         ),
       );
 
-      // agregar geocoding reverso para obtener la dirección, solo las coordenadas
       return LocationData(
         latitude: position.latitude,
         longitude: position.longitude,

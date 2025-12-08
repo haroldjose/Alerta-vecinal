@@ -47,7 +47,6 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
             return const Center(child: Text('No hay usuario autenticado'));
           }
 
-          // Usar el provider de reportes por usuario
           final myReportsAsync = ref.watch(myReportsStreamProvider(user.id));
 
           return myReportsAsync.when(
@@ -57,7 +56,6 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
 
               return Column(
                 children: [
-                  // Estadísticas rápidas
                   _buildStatsBar(reports),
 
                   // Panel de filtros
@@ -448,12 +446,10 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
   List<ReportModel> _applyFilters(List<ReportModel> reports) {
     var filtered = reports;
 
-    // Filtrar por tipo de problema
     if (_selectedProblemType != null) {
       filtered = filtered.where((report) => report.problemType == _selectedProblemType).toList();
     }
 
-    // Filtrar por estado
     if (_selectedStatus != null) {
       filtered = filtered.where((report) => report.status == _selectedStatus).toList();
     }
@@ -461,7 +457,6 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
     return filtered;
   }
 
-  // Limpiar filtros
   void _clearFilters() {
     setState(() {
       _selectedProblemType = null;

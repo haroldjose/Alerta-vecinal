@@ -41,95 +41,84 @@ class LocalStorageService {
       await Hive.openBox<LocalReportModel>(_reportsBox);
       await Hive.openBox<PendingOperation>(_pendingOpsBox);
       await Hive.openBox<LocalUserModel>(_usersBox);
-      await Hive.openBox<String>(_imagesBox); // Para guardar rutas de imágenes
-
+      await Hive.openBox<String>(_imagesBox); 
       _initialized = true;
-      print('✅ LocalStorageService inicializado correctamente');
+      
     } catch (e) {
-      print('❌ Error al inicializar LocalStorageService: $e');
+      'Error al inicializar LocalStorageService: $e';
       rethrow;
     }
   }
 
-  // =====================================================
-  // REPORTES
-  // =====================================================
-
-  /// Guardar o actualizar un reporte local
+  // Guardar o actualizar un reporte local
   Future<void> saveReport(LocalReportModel report) async {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     await box.put(report.id, report);
   }
 
-  /// Obtener un reporte por ID
+  // Obtener un reporte por ID
   LocalReportModel? getReport(String id) {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     return box.get(id);
   }
 
-  /// Obtener todos los reportes
+  // Obtener todos los reportes
   List<LocalReportModel> getAllReports() {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     return box.values.toList();
   }
 
-  /// Obtener reportes del usuario
+  // Obtener reportes del usuario
   List<LocalReportModel> getReportsByUser(String userId) {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     return box.values.where((r) => r.userId == userId).toList();
   }
 
-  /// Obtener reportes por tipo
+  // Obtener reportes por tipo
   List<LocalReportModel> getReportsByType(ProblemType type) {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     return box.values.where((r) => r.problemType == type.value).toList();
   }
 
-  /// Obtener reportes no sincronizados
+  // Obtener reportes no sincronizados
   List<LocalReportModel> getUnsyncedReports() {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     return box.values.where((r) => !r.isSynced).toList();
   }
 
-  /// Eliminar un reporte
+  // Eliminar un reporte
   Future<void> deleteReport(String id) async {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     await box.delete(id);
   }
 
-  /// Limpiar todos los reportes
+  // Limpiar todos los reportes
   Future<void> clearReports() async {
     final box = Hive.box<LocalReportModel>(_reportsBox);
     await box.clear();
   }
 
-  // =====================================================
-  // OPERACIONES PENDIENTES
-  // =====================================================
-
-  /// Agregar operación pendiente
+  // Agregar operación pendiente
   Future<void> addPendingOperation(PendingOperation operation) async {
     final box = Hive.box<PendingOperation>(_pendingOpsBox);
     await box.put(operation.id, operation);
-    print('📝 Operación pendiente agregada: ${operation.type} - ${operation.reportId}');
   }
 
-  /// Obtener todas las operaciones pendientes
+  // Obtener todas las operaciones pendientes
   List<PendingOperation> getPendingOperations() {
     final box = Hive.box<PendingOperation>(_pendingOpsBox);
     final ops = box.values.toList();
-    // Ordenar por timestamp (más antiguas primero)
     ops.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return ops;
   }
 
-  /// Eliminar operación pendiente
+  // Eliminar operación pendiente
   Future<void> removePendingOperation(String id) async {
     final box = Hive.box<PendingOperation>(_pendingOpsBox);
     await box.delete(id);
   }
 
-  /// Actualizar contador de reintentos
+  // Actualizar contador de reintentos
   Future<void> updateOperationRetryCount(String id, int retryCount) async {
     final box = Hive.box<PendingOperation>(_pendingOpsBox);
     final operation = box.get(id);
@@ -139,17 +128,13 @@ class LocalStorageService {
     }
   }
 
-  /// Limpiar operaciones pendientes
+  // Limpiar operaciones pendientes
   Future<void> clearPendingOperations() async {
     final box = Hive.box<PendingOperation>(_pendingOpsBox);
     await box.clear();
   }
 
-  // =====================================================
-  // IMÁGENES LOCALES
-  // =====================================================
-
-  /// Guardar imagen local y retornar su ruta
+  // Guardar imagen local y retornar su ruta
   Future<String> saveLocalImage(File imageFile, String reportId) async {
     try {
       final directory = await getApplicationDocumentsDirectory();
@@ -164,25 +149,23 @@ class LocalStorageService {
       
       await imageFile.copy(localPath);
 
-      // Guardar referencia en Hive
       final box = Hive.box<String>(_imagesBox);
       await box.put(reportId, localPath);
 
-      print('📷 Imagen guardada localmente: $localPath');
       return localPath;
     } catch (e) {
-      print('❌ Error al guardar imagen local: $e');
+      'Error al guardar imagen local: $e';
       rethrow;
     }
   }
 
-  /// Obtener ruta de imagen local
+  // Obtener ruta de imagen local
   String? getLocalImagePath(String reportId) {
     final box = Hive.box<String>(_imagesBox);
     return box.get(reportId);
   }
 
-  /// Eliminar imagen local
+  // Eliminar imagen local
   Future<void> deleteLocalImage(String reportId) async {
     try {
       final box = Hive.box<String>(_imagesBox);
@@ -194,16 +177,12 @@ class LocalStorageService {
           await file.delete();
         }
         await box.delete(reportId);
-        print('🗑️ Imagen local eliminada: $path');
+       
       }
     } catch (e) {
-      print('❌ Error al eliminar imagen local: $e');
+      'Error al eliminar imagen local: $e';
     }
   }
-
-  // =====================================================
-  // USUARIOS (CACHÉ)
-  // =====================================================
 
   Future<void> saveUser(LocalUserModel user) async {
     final box = Hive.box<LocalUserModel>(_usersBox);
@@ -215,16 +194,12 @@ class LocalStorageService {
     return box.get(id);
   }
 
-  // =====================================================
-  // UTILIDADES
-  // =====================================================
-
-  /// Cerrar todas las cajas
+  // Cerrar todas las cajas
   Future<void> closeAll() async {
     await Hive.close();
   }
 
-  /// Limpiar toda la base de datos local
+  // Limpiar toda la base de datos local
   Future<void> clearAll() async {
     await clearReports();
     await clearPendingOperations();
@@ -235,6 +210,5 @@ class LocalStorageService {
     final imagesBox = Hive.box<String>(_imagesBox);
     await imagesBox.clear();
     
-    print('🗑️ Base de datos local limpiada completamente');
   }
 }

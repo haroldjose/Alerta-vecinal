@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:alerta_vecinal/providers/reports_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/report_model.dart';
 import '../core/constants/colors.dart';
+import '../core/services/local_storage_service.dart';
 import '../screens/reports/report_detail_screen.dart';
 
 class ReportCard extends ConsumerWidget {
@@ -50,7 +52,7 @@ class ReportCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tipo de problema en la parte superior izquierda
+              // Tipo de problema
               Row(
                 children: [
                   Container(
@@ -90,7 +92,7 @@ class ReportCard extends ConsumerWidget {
               
               const SizedBox(height: 8),
               
-              // Descripción en el centro
+              // Descripción 
               Text(
                 report.truncatedDescription,
                 style: const TextStyle(
@@ -106,35 +108,14 @@ class ReportCard extends ConsumerWidget {
               
               Row(
                 children: [
-                  // Imagen y usuario (izquierda)
+                  // Imagen y usuario
                   Expanded(
                     child: Row(
                       children: [
-                        // Imagen del reporte (si existe)
                         if (report.imageUrl != null) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              report.imageUrl!,
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Icon(
-                                    Icons.image_not_supported,
-                                    color: Colors.grey[600],
-                                    size: 20,
-                                  ),
-                                );
-                              },
-                            ),
+                          _ReportImageThumbnail(
+                            reportId: report.id,
+                            imageUrl: report.imageUrl!,
                           ),
                           const SizedBox(width: 12),
                         ],
@@ -225,3 +206,72 @@ class ReportCard extends ConsumerWidget {
     }
   }
 }
+
+//Widget para manejar imágenes en modo offline
+class _ReportImageThumbnail extends StatelessWidget {
+  final String reportId;
+  final String imageUrl;
+
+  const _ReportImageThumbnail({
+    required this.reportId,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final localStorage = LocalStorageService();
+    final localReport = localStorage.getReport(reportId);
+    
+    if (localReport?.localImagePath != null) {
+      final localFile = File(localReport!.localImagePath!);
+      
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.file(
+          localFile,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholder();
+          },
+        ),
+      );
+    }
+    
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Image.network(
+        imageUrl,
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildPlaceholder();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _buildPlaceholder();
+        },
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(
+        Icons.image,
+        color: Colors.grey[600],
+        size: 20,
+      ),
+    );
+  }
+}
+
+

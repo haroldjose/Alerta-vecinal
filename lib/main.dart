@@ -20,22 +20,22 @@ void main() async {
   // 1. Inicializar Firebase
   await Firebase.initializeApp();
 
-  // 🆕 Configurar Firestore para modo offline (reducir warnings)
+  // Configurar Firestore para modo offline (reducir warnings)
   FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true, // Cache local
+    persistenceEnabled: true, 
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
   // 2. Inicializar servicio de notificaciones
   await NotificationService().initialize();
 
-  // 3. 🆕 Inicializar almacenamiento local (Hive)
+  // 3. Inicializar almacenamiento local (Hive)
   await LocalStorageService().initialize();
 
-  // 4. 🆕 Inicializar servicio de conectividad
+  // 4. Inicializar servicio de conectividad
   await ConnectivityService().initialize();
 
-  // 5. 🆕 Inicializar servicio de sincronización
+  // 5. Inicializar servicio de sincronización
   await SyncService().initialize();
 
   runApp(const ProviderScope(child: MyApp()));

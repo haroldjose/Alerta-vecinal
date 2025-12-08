@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:alerta_vecinal/models/user_model.dart';
 import 'package:alerta_vecinal/widgets/location_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/report_model.dart';
 import '../../core/constants/colors.dart';
+import '../../core/services/local_storage_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/reports_provider.dart';
 import 'edit_report_screen.dart';
@@ -22,6 +24,8 @@ class ReportDetailScreen extends ConsumerStatefulWidget {
 
 class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   ReportStatus? _selectedStatus;
+  bool _isUpdatingStatus = false;
+  bool _isDeletingReport = false;
 
   @override
   void initState() {
@@ -31,6 +35,11 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
 
   Future<void> _updateStatus() async {
     if (_selectedStatus == null || _selectedStatus == widget.report.status) return;
+    if (_isUpdatingStatus) return;
+
+    setState(() {
+      _isUpdatingStatus = true;
+    });
 
     try {
       final reportService = ref.read(reportServiceProvider);
@@ -48,10 +57,13 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
             backgroundColor: AppColors.success,
           ),
         );
-        Navigator.pop(context, true); 
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isUpdatingStatus = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
@@ -63,6 +75,8 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   }
 
   Future<void> _deleteReport() async {
+    if (_isDeletingReport) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -83,6 +97,10 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
     );
 
     if (confirmed == true) {
+      setState(() {
+        _isDeletingReport = true;
+      });
+
       try {
         final reportService = ref.read(reportServiceProvider);
         await reportService.deleteReport(widget.report.id);
@@ -99,10 +117,13 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
               backgroundColor: AppColors.success,
             ),
           );
-          Navigator.pop(context, true); 
+          Navigator.pop(context, true);
         }
       } catch (e) {
         if (mounted) {
+          setState(() {
+            _isDeletingReport = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: $e'),
@@ -139,18 +160,25 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         title: const Text('Detalle del Reporte'),
         backgroundColor: AppColors.primary,
         actions: [
-          // Botón editar (solo para el creador)
-          if (isOwner && !isAdmin)
+          if (isOwner || isAdmin)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: _editReport,
               tooltip: 'Editar reporte',
             ),
-          // Botón eliminar (solo para admin)
           if (isAdmin)
             IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _deleteReport,
+              icon: _isDeletingReport
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.delete),
+              onPressed: _isDeletingReport ? null : _deleteReport,
               tooltip: 'Eliminar reporte',
             ),
         ],
@@ -217,7 +245,6 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                     title: 'Estado',
                     children: [
                       if (isAdmin && _selectedStatus != widget.report.status) ...[
-                        // Mostrar dropdown para admin
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -237,26 +264,39 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                                   child: Text(status.displayName),
                                 );
                               }).toList(),
-                              onChanged: (ReportStatus? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedStatus = newValue;
-                                  });
-                                }
-                              },
+                              onChanged: _isUpdatingStatus 
+                                  ? null 
+                                  : (ReportStatus? newValue) {
+                                      if (newValue != null) {
+                                        setState(() {
+                                          _selectedStatus = newValue;
+                                        });
+                                      }
+                                    },
                             ),
                           ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: _updateStatus,
+                          onPressed: _isUpdatingStatus ? null : _updateStatus,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                           ),
-                          child: const Text('Actualizar Estado', style: TextStyle(color: Colors.white)),
+                          child: _isUpdatingStatus
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Actualizar Estado',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
                       ] else ...[
-                        // Solo mostrar estado actual
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
@@ -275,13 +315,15 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                         if (isAdmin) ...[
                           const SizedBox(height: 8),
                           TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _selectedStatus = widget.report.status == ReportStatus.pendiente 
-                                    ? ReportStatus.enRevision 
-                                    : ReportStatus.resuelto;
-                              });
-                            },
+                            onPressed: _isUpdatingStatus
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _selectedStatus = widget.report.status == ReportStatus.pendiente 
+                                          ? ReportStatus.enRevision 
+                                          : ReportStatus.resuelto;
+                                    });
+                                  },
                             child: const Text('Cambiar estado'),
                           ),
                         ],
@@ -308,34 +350,14 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Imagen
+                  //Imagen con soporte offline
                   if (widget.report.imageUrl != null) ...[
                     _buildInfoSection(
                       title: 'Imagen',
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            widget.report.imageUrl!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                height: 200,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.image_not_supported, size: 48),
-                                    Text('No se pudo cargar la imagen'),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                        _ReportImageWidget(
+                          reportId: widget.report.id,
+                          imageUrl: widget.report.imageUrl!,
                         ),
                       ],
                     ),
@@ -352,8 +374,8 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                     ),
                   ],
 
-                  // Botón de editar para el dueño (versión alternativa en el body)
-                  if (isOwner && !isAdmin) ...[
+                  // Botón de editar para el dueño
+                  if (isOwner || isAdmin) ...[
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
@@ -433,4 +455,85 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   }
 }
 
+//Widget para manejar imágenes en modo offline
+class _ReportImageWidget extends StatelessWidget {
+  final String reportId;
+  final String imageUrl;
+
+  const _ReportImageWidget({
+    required this.reportId,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Intentar cargar imagen local primero
+    final localStorage = LocalStorageService();
+    final localReport = localStorage.getReport(reportId);
+    
+    // Si existe imagen local,
+    if (localReport?.localImagePath != null) {
+      final localFile = File(localReport!.localImagePath!);
+      
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(
+          localFile,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildErrorPlaceholder();
+          },
+        ),
+      );
+    }
+    
+    // Si no hay imagen local, intentar cargar de red
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        imageUrl,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 200,
+            alignment: Alignment.center,
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / 
+                    loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _buildErrorPlaceholder();
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+          SizedBox(height: 8),
+          Text(
+            'Imagen no disponible',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}
 

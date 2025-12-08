@@ -6,7 +6,7 @@ import 'dart:io';
 // Handler para notificaciones en segundo plano
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('Notificación en segundo plano: ${message.messageId}');
+  'Notificación en segundo plano: ${message.messageId}';
 }
 
 class NotificationService {
@@ -25,24 +25,19 @@ class NotificationService {
   // Inicializar el servicio de notificaciones
   Future<void> initialize() async {
     try {
-      // Configurar handler de notificaciones en segundo plano
+      
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-      // Solicitar permisos
       await _requestPermissions();
 
-      // Configurar notificaciones locales
       await _configureLocalNotifications();
 
-      // Obtener y guardar el token FCM
       await _getAndSaveToken();
 
-      // Configurar listeners de notificaciones
       _configureNotificationListeners();
 
-      print('✅ NotificationService inicializado correctamente');
     } catch (e) {
-      print('❌ Error al inicializar NotificationService: $e');
+      'Error al inicializar NotificationService: $e';
     }
   }
 
@@ -66,8 +61,7 @@ class NotificationService {
       criticalAlert: false,
       provisional: false,
     );
-
-    print('Permisos de notificación: ${settings.authorizationStatus}');
+     'Permisos de notificación: ${settings.authorizationStatus}';
   }
 
   // Configurar notificaciones locales
@@ -87,8 +81,7 @@ class NotificationService {
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('Notificación clickeada: ${response.payload}');
-        // Aquí puedes navegar a la pantalla del reporte si lo deseas
+        
       },
     );
 
@@ -111,15 +104,13 @@ class NotificationService {
   Future<void> _getAndSaveToken() async {
     try {
       _fcmToken = await _messaging.getToken();
-      print('📱 FCM Token: $_fcmToken');
-
-      // Actualizar token cuando cambie
+      
       _messaging.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
-        print('🔄 Token actualizado: $newToken');
+       
       });
     } catch (e) {
-      print('❌ Error al obtener token: $e');
+      'Error al obtener token: $e';
     }
   }
 
@@ -132,9 +123,8 @@ class NotificationService {
         'fcmToken': _fcmToken,
         'tokenUpdatedAt': FieldValue.serverTimestamp(),
       });
-      print('✅ Token guardado para usuario: $userId');
     } catch (e) {
-      print('❌ Error al guardar token: $e');
+      'Error al guardar token: $e';
     }
   }
 
@@ -144,9 +134,9 @@ class NotificationService {
       await _firestore.collection('users').doc(userId).update({
         'fcmToken': FieldValue.delete(),
       });
-      print('🗑️ Token eliminado para usuario: $userId');
+      
     } catch (e) {
-      print('❌ Error al eliminar token: $e');
+      '❌ Error al eliminar token: $e';
     }
   }
 
@@ -154,14 +144,12 @@ class NotificationService {
   void _configureNotificationListeners() {
     // Cuando la app está en primer plano
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('📩 Notificación recibida en primer plano');
       _showLocalNotification(message);
     });
 
-    // Cuando el usuario hace click en la notificación (app en segundo plano)
+    // app en segundo plano
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('🔔 Notificación clickeada (app en segundo plano)');
-      // Aquí puedes navegar a la pantalla específica
+      
     });
   }
 
@@ -200,7 +188,7 @@ class NotificationService {
     );
   }
 
-  // Enviar notificación a todos los usuarios (excepto el creador)
+  // Enviar notificación a todos los usuarios
   Future<void> sendReportNotificationToAll({
     required String reportId,
     required String reportTitle,
@@ -208,7 +196,7 @@ class NotificationService {
     required String creatorId,
   }) async {
     try {
-      // Obtener todos los tokens de los usuarios (excepto el creador)
+      
       final usersSnapshot = await _firestore
           .collection('users')
           .where('fcmToken', isNotEqualTo: null)
@@ -222,12 +210,11 @@ class NotificationService {
       }
 
       if (tokens.isEmpty) {
-        print('⚠️ No hay tokens disponibles para enviar notificaciones');
+        
         return;
       }
 
       // Crear notificación para guardar en Firestore
-      // Esto permitirá que tu backend envíe la notificación
       await _firestore.collection('notifications').add({
         'reportId': reportId,
         'title': 'Nuevo Reporte: $reportType',
@@ -237,10 +224,9 @@ class NotificationService {
         'status': 'pending',
       });
 
-      print('✅ Notificación registrada para ${tokens.length} usuarios');
     } catch (e) {
-      print('❌ Error al enviar notificación: $e');
-      // No lanzar error para no interrumpir la creación del reporte
+      'Error al enviar notificación: $e';
+    
     }
   }
 }
